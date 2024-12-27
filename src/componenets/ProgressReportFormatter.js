@@ -45,9 +45,10 @@ const ProgressReportFormatter = () => {
 12월 4주차 ${name}
 1) 진도: 
 ${data.현재진도[data.현재진도.length - 1] || ''}
-${data.단원테스트.length > 0 || data.개념테스트.length > 0 ? '2) 테스트' : ''}
-${data.단원테스트.length > 0 ? `단원테스트:
-${data.단원테스트.join('\n')}` : ''}${data.개념테스트.length > 0 ? `개념테스트:
+${data.단원테스트.length > 0 || data.개념테스트.length > 0 ? '2) 테스트' : ''}${data.단원테스트.length > 0 ? `
+단원테스트:
+${data.단원테스트.join('\n')}` : ''}${data.개념테스트.length > 0 ? `
+개념테스트:
 ${data.개념테스트.join('\n')}` : ''}
 따뜻한 주말 되십시오^^`;
 
@@ -110,7 +111,6 @@ ${data.개념테스트.join('\n')}` : ''}
                                     alert('복사되었습니다!');
                                 } catch (err) {
                                     console.error('복사 실패:', err);
-                                    // 대체 복사 방법 시도
                                     const textArea = document.createElement('textarea');
                                     textArea.value = report.report;
                                     document.body.appendChild(textArea);
