@@ -6,8 +6,12 @@ const ProgressReportFormatter = () => {
     const [error, setError] = useState(null);
 
     const processStudentData = (jsonData) => {
-        // 데이터 처리 전 콘솔에 출력하여 확인
         console.log('처리할 데이터:', jsonData[0]);
+        
+        // 컬럼명 확인 ('현재진도' 또는 '현재진도 ' 둘 다 지원)
+        const hasTrimmedColumn = jsonData[0].hasOwnProperty('현재진도');
+        const hasSpacedColumn = jsonData[0].hasOwnProperty('현재진도 ');
+        const progressColumn = hasTrimmedColumn ? '현재진도' : hasSpacedColumn ? '현재진도 ' : null;
 
         // 학생별로 데이터 그룹화
         const studentGroups = {};
@@ -18,30 +22,43 @@ const ProgressReportFormatter = () => {
 
             if (!studentGroups[studentName]) {
                 studentGroups[studentName] = {
-                    현재진도: [],
+                    진도: [],
                     단원테스트: [],
                     개념테스트: []
                 };
             }
 
-            // 공백이 포함된 컬럼명 처리
-            if (row['현재진도 '] && row['현재진도 '].toString().trim()) {
-                studentGroups[studentName].현재진도.push(row['현재진도 '].trim());
+            // 진도 데이터 처리
+            if (progressColumn && row[progressColumn] && row[progressColumn].toString().trim()) {
+                studentGroups[studentName].진도.push(row[progressColumn].toString().trim());
             }
+
+            // 테스트 결과 처리
             if (row['단원테스트'] && row['단원테스트'].toString().trim()) {
-                studentGroups[studentName].단원테스트.push(row['단원테스트'].trim());
+                // 출결이 '결'인 경우에만 포함
+                if (!row['출결'] || row['출결'] === '결') {
+                    const score = row['H'] ? ` ${row['H']}` : '';
+                    studentGroups[studentName].단원테스트.push(row['단원테스트'].toString().trim() + score);
+                }
             }
+
             if (row['개념테스트'] && row['개념테스트'].toString().trim()) {
-                studentGroups[studentName].개념테스트.push(row['개념테스트'].trim());
+                studentGroups[studentName].개념테스트.push(row['개념테스트'].toString().trim());
             }
         });
 
-        // 결과 확인을 위한 로그
         console.log('처리된 데이터:', studentGroups);
 
         return Object.entries(studentGroups).map(([name, data]) => {
-            const report = `안녕하세요.\n백전백승 수학학원입니다.\n12월 4주차 ${name}\n\n1) 진도: \n${data.현재진도[data.현재진도.length - 1] || ''}\n\n${data.단원테스트.length > 0 || data.개념테스트.length > 0 ? '2) 테스트\n' : ''}${data.단원테스트.length > 0 ? `단원테스트:\n${data.단원테스트.join('\n')}\n` : ''}${data.개념테스트.length > 0 ? `개념테스트:\n${data.개념테스트.join('\n')}\n` : ''}\n따뜻한 주말 되십시오^^`;
+            const report = `안녕하세요.
+백전백승 수학학원입니다.
+12월 4주차 ${name}
 
+1) 진도: 
+${data.진도[data.진도.length - 1] || ''}
+
+${data.단원테스트.length > 0 || data.개념테스트.length > 0 ? '2) 테스트\n' : ''}${data.단원테스트.length > 0 ? `단원테스트:\n${data.단원테스트.join('\n')}\n` : ''}${data.개념테스트.length > 0 ? `개념테스트:\n${data.개념테스트.join('\n')}\n` : ''}
+따뜻한 주말 되십시오^^`;
 
             return { name, report };
         });
@@ -53,10 +70,12 @@ const ProgressReportFormatter = () => {
 
         try {
             const data = await file.arrayBuffer();
-            const workbook = XLSX.read(data);
+            const workbook = XLSX.read(data, {
+                cellDates: true,
+                cellStyles: true
+            });
+
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            
-            // 엑셀 데이터를 JSON으로 변환
             const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
                 raw: false,
                 defval: ''
@@ -68,6 +87,27 @@ const ProgressReportFormatter = () => {
         } catch (err) {
             setError('파일 처리 중 오류가 발생했습니다: ' + err.message);
             console.error('Error details:', err);
+        }
+    };
+
+    const handleCopy = async (report) => {
+        try {
+            await navigator.clipboard.writeText(report);
+            alert('복사되었습니다!');
+        } catch (err) {
+            console.error('복사 실패:', err);
+            // 폴백: 구형 브라우저 지원
+            const textArea = document.createElement('textarea');
+            textArea.value = report;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                alert('복사되었습니다!');
+            } catch (err) {
+                alert('복사에 실패했습니다. 직접 텍스트를 선택해서 복사해주세요.');
+            }
+            document.body.removeChild(textArea);
         }
     };
 
@@ -96,25 +136,7 @@ const ProgressReportFormatter = () => {
                             {report.report}
                         </pre>
                         <button
-                            onClick={async () => {
-                                try {
-                                    await navigator.clipboard.writeText(report.report);
-                                    alert('복사되었습니다!');
-                                } catch (err) {
-                                    console.error('복사 실패:', err);
-                                    const textArea = document.createElement('textarea');
-                                    textArea.value = report.report;
-                                    document.body.appendChild(textArea);
-                                    textArea.select();
-                                    try {
-                                        document.execCommand('copy');
-                                        alert('복사되었습니다!');
-                                    } catch (err) {
-                                        alert('복사에 실패했습니다. 직접 텍스트를 선택해서 복사해주세요.');
-                                    }
-                                    document.body.removeChild(textArea);
-                                }
-                            }}
+                            onClick={() => handleCopy(report.report)}
                             className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                         >
                             복사하기
